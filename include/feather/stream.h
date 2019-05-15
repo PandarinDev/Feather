@@ -1,9 +1,7 @@
 #pragma once
 
-#include <functional>
-#include <vector>
 #include <optional>
-#include <iostream>
+#include <functional>
 
 namespace feather {
 
@@ -19,11 +17,11 @@ namespace feather {
 		iterator_type it;
 		iterator_type end;
 
-		default_producer(Container& container) :
+		default_producer(const Container& container) :
 			it(std::cbegin(container)),
 	   		end(std::cend(container)) {}
 
-		const std::optional<value_type> operator()() {
+		std::optional<value_type> operator()() {
 			return it != end
 				? std::make_optional(*(it++))
 				: std::nullopt;
@@ -46,7 +44,7 @@ namespace feather {
 			generator(generator),
 			predicate(predicate) {}
 
-		const std::optional<value_type> operator()() {
+		std::optional<value_type> operator()() {
 			std::optional<value_type> next;
 			while ((next = generator()) && !predicate(*next));
 			return next;
@@ -70,7 +68,7 @@ namespace feather {
 			generator(generator),
 			mapper(mapper) {}
 
-		const std::optional<result_type> operator()() {
+		std::optional<result_type> operator()() {
 			auto next = generator();
 			if (!next) {
 				return std::nullopt;
@@ -107,24 +105,19 @@ namespace feather {
 	};
 
 	template<typename T>
-	struct StreamType {
+	struct stream_type {
 
 		using value_type = T;
 
-		template<typename Container>
-		StreamType(Container& container) :
-			producer(default_producer<Container>(container)) {}
+		stream_type(const producer_type<T>& producer) : producer(producer) {}
 
-		StreamType(const producer_type<T>& producer) : producer(producer) {}
-
-		StreamType<T> filter(const typename filter_producer<T>::predicate_type& predicate) const {
-			return StreamType(filter_producer<T>(producer, predicate));
+		stream_type<T> filter(const typename filter_producer<T>::predicate_type& predicate) const {
+			return stream_type(filter_producer<T>(producer, predicate));
 		}
 
 		template<typename Mapper>
-		auto map(const Mapper& mapper) const
-	   		-> StreamType<std::invoke_result_t<Mapper, const T&>> {
-			return StreamType(map_producer<T, std::invoke_result_t<Mapper, const T&>>(producer, mapper));
+		auto map(const Mapper& mapper) const {
+			return stream_type(map_producer<T, std::invoke_result_t<Mapper, const T&>>(producer, mapper));
 		}
 
 		template<typename Seed, typename Reducer>
@@ -147,8 +140,13 @@ namespace feather {
 	};
 
 	template<typename Collection>
-	static StreamType<typename Collection::value_type> Stream(const Collection& collection) {
-		return StreamType<typename Collection::value_type>(collection);
+	static auto Stream(const Collection& collection) {
+		return stream_type<typename Collection::value_type>(default_producer(collection));
+	}
+
+	template<typename T>
+	static auto Stream(std::initializer_list<T> values) {
+		return stream_type<T>(default_producer(values));
 	}
 
 }
