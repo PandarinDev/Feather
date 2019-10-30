@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <optional>
 #include <functional>
 
@@ -104,6 +105,51 @@ namespace feather {
 
 	};
 
+	template<typename T, typename R>
+	struct collect_terminator {
+
+		using source_type = T;
+		using container_type = R;
+		producer_type<source_type> generator;
+
+		collect_terminator(const producer_type<source_type>& generator) :
+			generator(generator) {}
+
+		auto add_to_container(container_type& container, const source_type& entry) -> decltype(std::declval<R>().emplace_back()) {
+			return container.emplace_back(entry);
+		}
+
+		R operator()() {
+			container_type container;
+			std::optional<source_type> next;
+			while (next = generator()) {
+				add_to_container(container, *next);
+			}
+			return container;
+		}
+
+	};
+
+	template<typename T>
+	struct count_terminator {
+
+		using source_type = T;
+		producer_type<source_type> generator;
+
+		count_terminator(const producer_type<source_type>& generator) :
+			generator(generator) {}
+
+		std::size_t operator()() {
+			std::size_t counter = 0;
+			std::optional<source_type> next;
+			while (next = generator()) {
+				++counter;
+			}
+			return counter;
+		}
+
+	};
+
 	template<typename T>
 	struct stream_type {
 
@@ -125,12 +171,21 @@ namespace feather {
 			return reduce_terminator<T, Seed>(producer, reducer)(seed);
 		}
 
-		T sum() const {
+		auto sum() const -> decltype(std::declval<T>() + std::declval<T>()) {
 			return reduce(T{}, [](const auto& s, const auto& e) { return s + e; });
 		}
 
 		const std::optional<value_type> next() const {
 			return producer();
+		}
+
+		template<typename Container>
+		Container collect() const {
+			return collect_terminator<T, Container>(producer)();
+		}
+
+		std::size_t count() const {
+			return count_terminator<T>(producer)();
 		}
 
 	private:

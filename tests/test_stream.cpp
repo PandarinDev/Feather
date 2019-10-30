@@ -38,4 +38,16 @@ TEST_CASE("Stream should be reducable") {
 
 TEST_CASE("Stream should be summarizable if it has addition operator") {
 	REQUIRE(Stream({ 1, 2, 3 }).sum() == 6);
+	std::string foo("foo");
+	std::string bar("bar");
+	REQUIRE(Stream({ foo, bar }).sum() == "foobar");
+}
+
+TEST_CASE("Stream should be collectible") {
+	REQUIRE(Stream({ 1, 2, 3 }).collect<std::vector<int>>() == std::vector<int> { 1, 2, 3 });
+}
+
+TEST_CASE("Stream should be countable") {
+	REQUIRE(Stream({ 1, 2, 3 }).count() == 3);
+	REQUIRE(Stream({ 2, 4, 6, 8, 10 }).count() == 5);
 }
