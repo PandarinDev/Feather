@@ -108,20 +108,20 @@ namespace feather {
 	template<typename T, typename R>
 	struct collect_terminator {
 
-		using source_type = T;
+		using value_type = T;
 		using container_type = R;
-		producer_type<source_type> generator;
+		producer_type<value_type> generator;
 
-		collect_terminator(const producer_type<source_type>& generator) :
+		collect_terminator(const producer_type<value_type>& generator) :
 			generator(generator) {}
 
-		auto add_to_container(container_type& container, const source_type& entry) -> decltype(std::declval<R>().emplace_back()) {
+		auto add_to_container(container_type& container, const value_type& entry) -> decltype(std::declval<R>().emplace_back()) {
 			return container.emplace_back(entry);
 		}
 
 		R operator()() {
 			container_type container;
-			std::optional<source_type> next;
+			std::optional<value_type> next;
 			while (next = generator()) {
 				add_to_container(container, *next);
 			}
@@ -133,19 +133,71 @@ namespace feather {
 	template<typename T>
 	struct count_terminator {
 
-		using source_type = T;
-		producer_type<source_type> generator;
+		using value_type = T;
+		producer_type<value_type> generator;
 
-		count_terminator(const producer_type<source_type>& generator) :
+		count_terminator(const producer_type<value_type>& generator) :
 			generator(generator) {}
 
 		std::size_t operator()() {
 			std::size_t counter = 0;
-			std::optional<source_type> next;
+			std::optional<value_type> next;
 			while (next = generator()) {
 				++counter;
 			}
 			return counter;
+		}
+
+	};
+
+	template<typename T>
+	struct any_match_terminator {
+
+		using value_type = T;
+		using predicate_type = std::function<bool(const value_type&)>;
+		
+		producer_type<value_type> generator;
+		predicate_type predicate;
+
+		any_match_terminator(
+			const producer_type<value_type>& generator,
+			const predicate_type& predicate) :
+			generator(generator), predicate(predicate) {}
+
+		bool operator()() {
+			std::optional<value_type> next;
+			while (next = generator()) {
+				if (predicate(*next)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+	};
+
+	template<typename T>
+	struct all_match_terminator {
+
+		using value_type = T;
+		using predicate_type = std::function<bool(const value_type&)>;
+		
+		producer_type<value_type> generator;
+		predicate_type predicate;
+
+		all_match_terminator(
+			const producer_type<value_type>& generator,
+			const predicate_type& predicate) :
+			generator(generator), predicate(predicate) {}
+
+		bool operator()() {
+			std::optional<value_type> next;
+			while (next = generator()) {
+				if (!predicate(*next)) {
+					return false;
+				}
+			}
+			return true;
 		}
 
 	};
@@ -186,6 +238,14 @@ namespace feather {
 
 		std::size_t count() const {
 			return count_terminator<T>(producer)();
+		}
+
+		bool any_match(const typename any_match_terminator<T>::predicate_type& predicate) const {
+			return any_match_terminator<T>(producer, predicate)();
+		}
+
+		bool all_match(const typename all_match_terminator<T>::predicate_type& predicate) const {
+			return all_match_terminator<T>(producer, predicate)();
 		}
 
 	private:

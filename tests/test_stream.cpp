@@ -51,3 +51,15 @@ TEST_CASE("Stream should be countable") {
 	REQUIRE(Stream({ 1, 2, 3 }).count() == 3);
 	REQUIRE(Stream({ 2, 4, 6, 8, 10 }).count() == 5);
 }
+
+TEST_CASE("Stream should be able to tell if any of the elements match a given predicate") {
+	auto is_even = [](const auto& i) { return i % 2 == 0; };
+	REQUIRE(Stream({ 1, 3, 5, 7, 9 }).any_match(is_even) == false);
+	REQUIRE(Stream({ 1, 3, 6, 7, 9 }).any_match(is_even) == true);
+}
+
+TEST_CASE("Stream should be able to tell if all of the elements match a given predicate") {
+	auto is_odd = [](const auto& i) { return i % 2 == 1; };
+	REQUIRE(Stream({ 1, 3, 5, 7, 9 }).all_match(is_odd) == true);
+	REQUIRE(Stream({ 1, 3, 6, 7, 9 }).all_match(is_odd) == false);
+}
